@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     env:
       GRADLE_USER_HOME: ${{ github.workspace }}/.gradle
 
@@ -19,42 +20,32 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Decode keystore and save
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Decode keystore
         run: |
-          echo "Decoding keystore..."
-          echo "$KEYSTORE_BASE64" | base64 --decode > my-release-key.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > my-release-key.jks
           ls -l my-release-key.jks
 
-      - name: Create gradle.properties for signing (temporary)
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Create gradle.properties
         run: |
-          cat > gradle.properties <<EOF
-org.gradle.jvmargs=-Xmx1536m
-JARVIS_KEYSTORE_FILE=my-release-key.jks
-JARVIS_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
-JARVIS_KEY_ALIAS=${KEY_ALIAS}
-JARVIS_KEY_PASSWORD=${KEY_PASSWORD}
-EOF
+          echo "JARVIS_KEYSTORE_FILE=my-release-key.jks" >> gradle.properties
+          echo "JARVIS_KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> gradle.properties
+          echo "JARVIS_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> gradle.properties
+          echo "JARVIS_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> gradle.properties
+          cat gradle.properties
 
-      - name: Grant execute for gradlew
+      - name: Grant execution for Gradle
         run: chmod +x ./gradlew || true
 
-      - name: Build release APK
-        run: |
-          ./gradlew clean assembleRelease --no-daemon || true
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: Show output files
-        run: ls -R app/build/outputs/apk/release || true
+      - name: Show APK files
+        run: ls -R app/build/outputs/apk
 
-      - name: Upload signed APK artifact
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
